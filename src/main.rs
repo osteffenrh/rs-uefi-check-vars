@@ -39,6 +39,8 @@ fn print_image_path(boot_services: &BootServices) -> Result {
 
     let image_device_path =
         loaded_image.file_path().expect("File path is not set");
+    let (ptr, size) = loaded_image.info();
+    info!("size: {}", size);
     let image_device_path_text = device_path_to_text
         .convert_device_path_to_text(
             boot_services,
