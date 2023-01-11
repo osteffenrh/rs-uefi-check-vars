@@ -1,0 +1,56 @@
+#!/bin/bash -eu
+
+usage() { echo "Usage: $0 [-w WORKSPACE] [-c OVMF-code] [-v OVMF-vars]" 1>&2; exit 1; }
+
+CMDLINE=""
+FW_CODE="/usr/share/edk2/aarch64/QEMU_EFI-silent-pflash.raw"
+FW_VARS_TEMPL="/usr/share/edk2/aarch64/QEMU_VARS.fd"
+
+while getopts ":w:k:c:v:" o; do
+    case "${o}" in
+        w)
+            WORKSPACE="$(realpath "${OPTARG}")"
+            test -d "${WORKSPACE}" || ( echo "WORKSPACE ${WORKSPACE} not found"; exit 1 )
+            FW_CODE="${WORKSPACE}/Build/OvmfX64/DEBUG_GCC5/FV/OVMF_CODE.fd"
+            FW_VARS_TEMPL="${WORKSPACE}/Build/OvmfX64/DEBUG_GCC5/FV/OVMF_VARS.fd"
+            ;;
+        c)
+            FW_CODE="$(realpath "${OPTARG}")"
+            test -f "${FW_CODE}" || ( echo "FW_CODE ${FW_CODE} not found"; exit 1 )
+            ;;
+        v)
+            FW_VARS_TEMPL="$(realpath "${OPTARG}")"
+            test -f "${FW_VARS_TEMPL}" || ( echo "FW_VARS_TEMPL ${FW_VARS_TEMPL} not found"; exit 1 )
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $(( OPTIND - 1 ))
+
+CMDLINE+=$*
+
+SIZE_64M=67108864
+
+FW_CODE_RESIZED=$(mktemp)
+cat "${FW_CODE}" > "${FW_CODE_RESIZED}"
+truncate -s${SIZE_64M} "${FW_CODE_RESIZED}"
+
+FW_VARS=$(mktemp)
+cat "${FW_VARS_TEMPL}" > "${FW_VARS}"
+truncate -s${SIZE_64M} "${FW_VARS}"
+
+/usr/bin/qemu-system-aarch64 \
+    -machine virt \
+    -machine accel=tcg -m 1G -boot menu=on \
+    -display none \
+    -vga none \
+    -cpu cortex-a57 \
+    -blockdev node-name=code,driver=file,filename="${FW_CODE_RESIZED}",read-only=on \
+    -blockdev node-name=vars,driver=file,filename="${FW_VARS}" \
+    -machine pflash0=code \
+    -machine pflash1=vars \
+    -net none \
+    -serial stdio \
+    $CMDLINE
