@@ -5,16 +5,9 @@
 extern crate alloc;
 
 use alloc::vec;
-use core::ffi::c_char;
 use log::info;
 use uefi::prelude::*;
-use uefi::proto::device_path::text::{
-    AllowShortcuts, DevicePathToText, DisplayOnly,
-};
-use uefi::proto::loaded_image::LoadedImage;
-use uefi::table::boot::SearchType;
 use uefi::table::runtime::RuntimeServices;
-use uefi::{CStr16, Identify, prelude, Result};
 use uefi::guid;
 use uefi::CString16;
 
@@ -28,19 +21,17 @@ unsafe fn main(_image_handle: Handle, mut system_table: SystemTable<Boot>) -> St
     let boot_services = system_table.boot_services();
     init(boot_services);
 
-    info!("Hello world!");
     printvar(system_table.runtime_services());
     system_table.boot_services().stall(10_000_000);
     Status::SUCCESS
 }
 
 fn printvar(runtime_services: &RuntimeServices) {
-
-    let n = CString16::try_from("Boot0000").unwrap();
-    let guid = uefi::table::runtime::VariableVendor( guid!("8be4df61-93ca-11d2-aa0d-00e098032b8c") );
+    let n = CString16::try_from("LoaderInfo").unwrap();
+    let guid = uefi::table::runtime::VariableVendor( guid!("4a67b082-0a4c-41cf-b6c7-440b29bb8c4f") );
 
     let size = runtime_services.get_variable_size(n.as_ref(), &guid).expect("Error getting var size");
-    info!("variable size {}", size);
+    // info!("variable size {}", size);
 
     let mut buf = vec![0u8; size];
     let _res = runtime_services.get_variable(n.as_ref(), &guid, buf.as_mut_slice()).expect("Error reading var");
